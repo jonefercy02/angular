@@ -1,0 +1,170 @@
+HTML :
+
+<table border="1">
+  <thead>
+  <tr>
+  <th>ID</th>
+  <th>Name</th>
+  <th>Description</th>
+  </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let user of users">
+      <td>{{ user.price }}</td>
+      <td>{{ user.name }}</td>
+      <td>{{ user.description }}</td>
+    </tr>
+      @for (item of data ; track item){
+        <tr>
+          <td>{{ item.price }}</td>
+          <td>{{ item.name }}</td>
+          <td>{{item.description }}</td>
+        </tr>
+      }
+  </tbody>
+  </table>
+
+ts file :
+
+import { Component } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [RouterOutlet],
+  templateUrl: './app.component.html',
+  styleUrl: './app.component.css'
+})
+export class AppComponent {
+  title = 'sample';
+
+  data: any[] = [];
+apiUrl = 'http://localhost:3000/api/items'; // Replace with your API URL
+ngOnInit(): void {
+this.fetchData();
+}
+fetchData(): void {
+fetch(this.apiUrl)
+.then(response => {
+if (!response.ok) {
+throw new Error('Network response was not ok');
+}
+return response.json();
+})
+.then(data => {
+this.data = data;
+console.log(this.data)
+})
+.catch(error => {
+console.error('There was a problem with the fetch operation:', error);
+});
+}
+}
+
+create a folder called backend :
+
+model folder itemModel.js:
+
+const mongoose = require('mongoose');
+
+const ItemSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  description: { type: String, required: true },
+  price: { type: Number, required: true }
+});
+
+module.exports = mongoose.model('Item', ItemSchema);
+
+routes folder itemRoutes.js : 
+
+const express = require('express');
+const router = express.Router();
+const Item = require('../model/itemModel');
+
+// Create a new item
+router.post('/', async (req, res) => {
+  try {
+    const newItem = new Item(req.body);
+    const savedItem = await newItem.save();
+    res.status(201).json(savedItem);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Get all items
+router.get('/', async (req, res) => {
+  try {
+    const items = await Item.find();
+    res.status(200).json(items);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get a single item by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const item = await Item.findById(req.params.id);
+    if (!item) return res.status(404).json({ error: 'Item not found' });
+    res.status(200).json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update an item by ID
+router.put('/:id', async (req, res) => {
+  try {
+    const updatedItem = await Item.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updatedItem) return res.status(404).json({ error: 'Item not found' });
+    res.status(200).json(updatedItem);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Delete an item by ID
+router.delete('/:id', async (req, res) => {
+  try {
+    const deletedItem = await Item.findByIdAndDelete(req.params.id);
+    if (!deletedItem) return res.status(404).json({ error: 'Item not found' });
+    res.status(200).json({ message: 'Item deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;
+
+
+
+server.js :
+
+const express = require('express');
+const mongoose = require('mongoose');
+const bodyParser = require('body-parser');
+const cors = require('cors')
+const itemRoutes = require('./routes/itemRoutes');
+
+const app = express();
+const port = 3000;
+
+// Middleware
+app.use(bodyParser.json());  // Parse JSON bodies
+app.use(cors());
+// Connect to MongoDB
+mongoose.connect('mongodb://localhost:27017/mydatabase', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.error('MongoDB connection error:', err));
+
+// Use Routes
+app.use('/api/items', itemRoutes);
+
+app.listen(port, () => {
+  console.log(`Server is running on http://localhost:${port}`);
+});
